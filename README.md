@@ -1,5 +1,55 @@
 ## This guide is for Ubuntu and PostgreSQL-17
 
+# Table of Contents
+
+1. [Setup PostgreSQL](#setup-postgresql)
+
+   1. [Update your system](#update-your-system)
+   2. [Add the PostgreSQL APT Repository](#add-the-postgresql-apt-repository)
+   3. [Add the PostgreSQL repository](#add-the-postgresql-repository)
+   4. [Install PostgreSQL 17](#install-postgresql-17)
+   5. [Start and Enable PostgreSQL Service](#start-and-enable-postgresql-service)
+   6. [Verify installation for PostgreSQL](#verify-installation-for-postgresql)
+   7. [Security: Change postgres user password after installation and restart](#security-change-postgres-user-password-after-installation-and-restart)
+2. [Setup PGBackRest](#setup-pgbackrest)
+
+   1. [Update your system (skip if already done)](#update-your-system-skip-if-already-done)
+   2. [Install pgBackRest](#install-pgbackrest)
+   3. [Verify Installation for pgBackRest](#verify-installation-for-pgbackrest)
+3. [Configure pgBackRest](#configure-pgbackrest)
+
+   1. [Create Backup Directory](#create-backup-directory)
+4. [Configure PostgreSQL for pgBackRest](#configure-postgresql-for-pgbackrest)
+
+   1. [Enable PostgreSQL Archive Mode](#enable-postgresql-archive-mode)
+   2. [Add/Update the following lines](#addupdate-the-following-lines)
+   3. [Restart PostgreSQL](#restart-postgresql)
+5. [Setting Up a Stanza](#setting-up-a-stanza)
+
+   1. [Add stanza to `pgbackrest.conf`](#add-stanza-to-pgbackrestconf)
+   2. [Initialise, check and confirm repo state of the stanza](#initialise-check-and-confirm-repo-state-of-the-stanza)
+6. [Taking Backup Manually](#taking-backup-manually)
+
+   1. [Full Backups](#full-backups)
+   2. [Differential Backups](#differential-backups)
+   3. [Incremental Backups](#incremental-backups)
+   4. [See latest available backups for repo-2 (s3 in our case)](#see-latest-available-backups-for-repo-2-s3-in-our-case)
+7. [Restore Backup](#restore-backup)
+
+   1. [Option 1: Restore with --delta (Recommended for Partial Restore)](#option-1-restore-with---delta-recommended-for-partial-restore)
+   2. [Option 2: Perform a Full Clean Restore](#option-2-perform-a-full-clean-restore)
+   3. [Option 3: Perform Point-in-Time Restore](#option-3-perform-point-in-time-restore)
+   4. [Option 4: Specific Backup Set Restoration](#option-4-specific-backup-set-restoration)
+   5. [Check Database Integrity](#check-database-integrity)
+8. [Verify Logs After Restore](#verify-logs-after-restore)
+
+   1. [Common log files](#common-log-files)
+   2. [Tail the restore log after a restore](#tail-the-restore-log-after-a-restore)
+   3. [Tail the backup log after a backup](#tail-the-backup-log-after-a-backup)
+9. [Automate Backups with Cron](#automate-backups-with-cron)
+
+10. [References](#references)
+
 ## Setup PostgreSQL
 
 ### Update your system
@@ -32,7 +82,7 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 ```
 
-### Verify installation
+### Verify installation for PostgreSQL
 ```bash
 psql --version
 ```
@@ -59,7 +109,7 @@ sudo apt upgrade -y
 sudo apt install pgbackrest -y
 ```
 
-### Verify Installation
+### Verify Installation for pgBackRest
 ```bash
 pgbackrest --version
 ```
@@ -152,7 +202,7 @@ process-max=4
 #compress-level=3
 ```
 
-### As the postgres user, initialise, check and confirm repo state of the stanza
+### Initialise, check and confirm repo state of the stanza
 ```bash
 sudo -u postgres pgbackrest --stanza=production --log-level-console=info stanza-create
 sudo -u postgres pgbackrest --stanza=production --log-level-console=info check
@@ -321,7 +371,7 @@ sudo -u postgres psql -c "SELECT current_timestamp, version();"
 
 > pgBackRest writes a separate log file for each operation in `/var/log/pgbackrest/`.
 
-Common examples:
+### Common log files
 - `production-backup.log` → backup operations
 - `production-restore.log` → restore operations
 - `production-expire.log` → expired backup cleanup
