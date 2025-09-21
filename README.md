@@ -319,9 +319,22 @@ sudo -u postgres psql -c "SELECT current_timestamp, version();"
 
 ## Verify Logs After Restore
 
-### Check the pgBackRest logs to ensure everything went smoothly
+> pgBackRest writes a separate log file for each operation in `/var/log/pgbackrest/`.
+
+Common examples:
+- `production-backup.log` → backup operations
+- `production-restore.log` → restore operations
+- `production-expire.log` → expired backup cleanup
+- `production-stanza-create.log` → stanza creation
+
+### Tail the restore log after a restore
 ```bash
-sudo tail -f /var/log/pgbackrest/pgbackrest.log
+sudo tail -f /var/log/pgbackrest/production-restore.log
+```
+
+### Tail the backup log after a backup
+```bash
+sudo tail -f /var/log/pgbackrest/production-backup.log
 ```
 
 ## Automate Backups with Cron
