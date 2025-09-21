@@ -37,6 +37,12 @@ sudo systemctl enable postgresql
 psql --version
 ```
 
+### Security: Change postgres user password after installation and restart
+```bash
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'your_new_password';"
+sudo systemctl restart postgresql
+```
+
 ## Setup PGBackRest
 
 ### Update your system
@@ -73,7 +79,7 @@ sudo touch /etc/pgbackrest/pgbackrest.conf
 sudo chmod 640 /etc/pgbackrest/pgbackrest.conf
 sudo chown postgres:postgres /etc/pgbackrest/pgbackrest.conf
 
-# Bakup Directory
+# Backup Directory
 sudo mkdir -p /var/lib/pgbackrest
 sudo chmod 750 /var/lib/pgbackrest
 sudo chown postgres:postgres /var/lib/pgbackrest
@@ -81,15 +87,16 @@ sudo chown postgres:postgres /var/lib/pgbackrest
 
 ## Configure PostgreSQL for pgBackRest
 
-### Enable PosgreSQL Archive Mode
+### Enable PostgreSQL Archive Mode
 ```bash
-sudo vi /etc/postgresql/17/main/postgresql.conf
+sudo nano /etc/postgresql/17/main/postgresql.conf  # Or use your preferred editor
 ```
 
 ### Add/Update the following lines
-```toml
+```
 archive_mode = on
-archive_command = 'pgbackrest --stanza=production archive-push %p'
+archive_command = '/usr/bin/pgbackrest --stanza=production archive-push "%p"'
+archive_timeout = 60
 wal_level = replica
 max_wal_senders = 3
 ```
@@ -104,7 +111,7 @@ sudo systemctl restart postgresql
 ### Add stanza to `pgbackrest.conf`
 1. `pg1-path` is data directory of postgres database.
 2. `repo1-path` is repository path where local backup will be stored.
-3. You can skip s3 settings if local backups are enough
+3. You can skip S3 settings if local backups are enough. **Security note:** In production, avoid storing plain-text credentials; use environment variables or a secrets manager.
 
 ```bash
 [production]
@@ -152,7 +159,7 @@ sudo -u postgres pgbackrest --stanza=production --log-level-console=info check
 sudo -u postgres pgbackrest --stanza=production --log-level-console=info info
 ```
 
-## Taking Backup Mnaually
+## Taking Backup Manually
 
 ### Full Backups
 
@@ -184,6 +191,8 @@ sudo -u postgres pgbackrest --stanza=production --repo=2 info
 ```
 
 ## Restore Backup
+
+> **Important:** Restores involve downtime. Test in a staging environment first. Use timestamps for backups (e.g., as shown in examples).
 
 ### Option 1: Restore with --delta (Recommended for Partial Restore)
 
@@ -321,9 +330,11 @@ sudo tail -f /var/log/pgbackrest/pgbackrest.log
 2. For this, edit the crontab for postgres user (`sudo crontab -u postgres -e`) and add below jobs
 
 ```bash
-0 2 * * 0 postgres pgbackrest --stanza=production --type=full backup
+# Full backup every Sunday at 02:00
+0 2 * * 0 /usr/bin/pgbackrest --stanza=production --log-level-console=info --type=full backup >> /var/log/pgbackrest/cron.backup.log 2>&1
 
-0 2 * * 1-6 postgres pgbackrest --stanza=production --type=diff backup
+# Differential backup Mon-Sat at 02:00
+0 2 * * 1-6 /usr/bin/pgbackrest --stanza=production --log-level-console=info --type=diff backup >> /var/log/pgbackrest/cron.backup.log 2>&1
 ```
 
 
