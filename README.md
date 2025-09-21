@@ -327,3 +327,6 @@ sudo tail -f /var/log/pgbackrest/pgbackrest.log
 ```
 
 
+### References:
+1. https://bootvar.com/guide-to-setup-pgbackrest/
+2. https://www.linkedin.com/pulse/install-configure-pgbackrest-postgresql-17-ubuntu-2404-mahto-7ofgf
