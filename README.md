@@ -48,7 +48,9 @@
    3. [Tail the backup log after a backup](#tail-the-backup-log-after-a-backup)
 9. [Automate Backups with Cron](#automate-backups-with-cron)
 
-10. [References](#references)
+10. [Other Notes](#other-notes)
+
+11. [References](#references)
 
 ## Setup PostgreSQL
 
@@ -162,6 +164,7 @@ sudo systemctl restart postgresql
 1. `pg1-path` is data directory of postgres database.
 2. `repo1-path` is repository path where local backup will be stored.
 3. You can skip S3 settings if local backups are enough. **Security note:** In production, avoid storing plain-text credentials; use environment variables or a secrets manager.
+4. 
 
 ```bash
 [production]
@@ -170,12 +173,12 @@ pg1-path=/var/lib/postgresql/17/main
 #pg1-socket-path=<custom unix socket or custom PGDATA layout>
 pg1-port=5432
 pg1-user=postgres
+#pg1-password=<password>
 
 [global]
 # Local POSIX repo
 repo1-path=/var/lib/pgbackrest
 repo1-type=posix
-repo1-compress-type=lz4
 repo1-retention-full=2
 repo1-retention-diff=4
 
@@ -185,14 +188,13 @@ log-path=/var/log/pgbackrest
 
 # Remote S3-compatible repo (Using Cloudflare R2 here as an example)
 repo2-type=s3
-# repo2-path is required syntactically; it is unused for S3 semantics
 repo2-path=/pgbackrest
 repo2-s3-endpoint=<your-r2-endpoint>
 repo2-s3-bucket=<your-bucket-name>
 repo2-s3-key=<YOUR_R2_ACCESS_KEY>
 repo2-s3-key-secret=<YOUR_R2_SECRET_KEY>
 repo2-s3-region=auto
-repo2-s3-verify-tls=true
+repo2-s3-verify-tls=y
 repo2-retention-full=4
 repo2-retention-diff=8
 
@@ -400,7 +402,28 @@ sudo tail -f /var/log/pgbackrest/production-backup.log
 0 2 * * 1-6 /usr/bin/pgbackrest --stanza=production --log-level-console=info --type=diff backup >> /var/log/pgbackrest/cron.backup.log 2>&1
 ```
 
+## Other Notes
+
+1. If you have `created` a brand-new stanza or if you've `deleted/recreated` the repository path, always make sure to run `stanza-create` again: `sudo -u postgres pgbackrest --stanza=production --log-level-console=info stanza-create`.
+2. After making any change to `pgbackrest.conf`, always check the configuration for any issues: `sudo -u postgres pgbackrest --stanza=production --log-level-console=info check`.
+
+### When to run or not stanza create
+
+| Situation                                                                   | Need to run `stanza-create`? | Why                                                                   |
+| --------------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| **Initial setup of a new stanza**                                           | ✅ Yes                        | The stanza metadata must be created in the repo.                      |
+| **Adding a brand-new repo** (e.g., `repo2` in addition to `repo1`)          | ✅ Yes (for that repo)        | Each repo must have stanza metadata for backups to work.              |
+| **Deleting and recreating a repo path** (e.g., `/var/lib/pgbackrest/repo1`) | ✅ Yes                        | Old metadata is gone → you must recreate it.                          |
+| **Changing PostgreSQL connection settings** (e.g., `pg1-path`, `pg1-host`)  | ❌ No                         | Does not affect stanza metadata.                                      |
+| **Changing retention policies** (e.g., `repo1-retention-full=2`)            | ❌ No                         | Only affects cleanup behavior, not stanza.                            |
+| **Changing compression/encryption settings**                                | ❌ No                         | Applies to new backups, not stanza metadata.                          |
+| **Changing logging levels**                                                 | ❌ No                         | Only affects verbosity, not stanza.                                   |
+| **Moving a PostgreSQL cluster to a new server but keeping repo intact**     | ❌ (usually)                  | As long as the stanza metadata in repo is valid, no need to recreate. |
+| **Moving repo to a new location without metadata**                          | ✅ Yes                        | If metadata didn’t come along, stanza must be recreated.              |
+
+
 
 ### References:
 1. https://bootvar.com/guide-to-setup-pgbackrest/
 2. https://www.linkedin.com/pulse/install-configure-pgbackrest-postgresql-17-ubuntu-2404-mahto-7ofgf
+3. ChatGPT + Sonnet + Grok + Gemini + Stackoverflow + Googling
